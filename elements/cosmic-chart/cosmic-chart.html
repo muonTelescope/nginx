@@ -162,8 +162,7 @@ Chart data retrived based on a detector object
           }
         }
         this._data = data.detail.response;
-        this._reprocess();
-        this.loading = false;                      
+        this._reprocess();                    
       },
 
       _reprocess: function(){
@@ -193,7 +192,6 @@ Chart data retrived based on a detector object
             } else {
               this.movingAverageProgress = 100;
             }
-
           } else if(this.percentVariation){
             this.convertToPercentVariation();
           } else {
