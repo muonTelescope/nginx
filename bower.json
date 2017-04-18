@@ -1,0 +1,18 @@
+{
+  "name": "muon-telescope",
+  "private": true,
+  "dependencies": {
+    "iron-elements": "PolymerElements/iron-elements",
+    "neon-elements": "PolymerElements/neon-elements",
+    "page": "visionmedia/page.js",
+    "paper-elements": "PolymerElements/paper-elements",
+    "platinum-elements": "PolymerElements/platinum-elements",
+    "polymer": "Polymer/polymer",
+    "app-layout": "PolymerElements/app-layout",
+    "plotly-plot": "ginkgobioworks/plotly-plot#^0.5.0"
+  },
+  "devDependencies": {
+    "web-component-tester": "*"
+  },
+  "ignore": []
+}

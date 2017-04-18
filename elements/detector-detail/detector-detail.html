@@ -1,0 +1,55 @@
+<link rel="import" href="../../bower_components/polymer/polymer.html">
+<link rel="import" href="../../bower_components/paper-material/paper-material.html">
+<link rel="import" href="../../bower_components/paper-card/paper-card.html">
+<link rel="import" href="../../bower_components/paper-toggle-button/paper-toggle-button.html">
+<link rel="import" href="../../bower_components/paper-slider/paper-slider.html">
+
+<link rel="import" href="../../bower_components/iron-flex-layout/iron-flex-layout-classes.html">
+
+<link rel="import" href="../cosmic-chart/cosmic-chart.html">
+
+<dom-module id="detector-detail">
+    <template>
+        <style include="iron-flex iron-flex-alignment">
+             :host {
+                display: block;
+            }
+            
+            paper-card {
+                margin: 1%;
+                padding: 1%;
+                width: 98%;
+            }
+
+        </style>
+
+        <paper-card>
+            <cosmic-chart detector={{selected}} percent-variation=[[percentVariation]] moving-average="[[movingAverage]]"></cosmic-chart>
+        </paper-card>
+
+        <paper-card heading="{{selected.name}}" alt="{{selected.name}}">
+            <div class="card-content">
+                {{selected.description}}
+            </div>
+            <div class="card-actions">
+                Tags: {{selected.tags}}
+            </div>
+
+            <paper-toggle-button checked="{{percentVariation}}">Percent Variation</paper-toggle-button>
+            <div>Moving Average</div><br>
+            <paper-slider pin max=120 min=0 step=5 value="{{movingAverage}}"></paper-slider>
+
+        </paper-card>
+
+    </template>
+    <script>
+        Polymer({
+            is: 'detector-detail',
+            properties: {
+                selected: {
+                    type: Object
+                },
+            },
+        });
+    </script>
+</dom-module>

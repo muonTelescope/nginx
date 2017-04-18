@@ -1,0 +1,250 @@
+<link rel="import" href="../../bower_components/polymer/polymer.html">
+<link rel="import" href="../../bower_components/iron-ajax/iron-ajax.html">
+<link rel="import" href="../../bower_components/plotly-plot/plotly-plot.html">
+<link rel="import" href="../../bower_components/paper-spinner/paper-spinner.html">
+
+<!--
+`cosmic-chart`
+Chart data retrived based on a detector object
+-->
+
+<dom-module id="cosmic-chart">
+  <template>
+    <style>
+       :host {
+        display: block;
+      }
+      paper-spinner {
+        display: block;
+        margin: auto;        
+        width: 100px;
+        height: 100px;
+      }
+      .loading {
+        width: 100%;
+        height: 60vh;
+      }
+      .spinner {
+        display: block;
+        text-align: center;
+        position: relative;
+        top: 50%;
+        transform: translateY(-50%);
+      }
+    </style>
+
+    <template is="dom-if" if={{loading}}>
+      <div class="loading">
+        <div class="spinner">
+          <paper-spinner active alt="[[loadingMessage]]"></paper-spinner>
+          <p id="loadingMessage">[[loadingMessage]]</p>   
+        </div> 
+      </div>
+    </template>
+    <template is="dom-if" if={{!loading}}>
+      <plotly-plot id="chart" data="[[_chartData]]" layout="[[_chartLayout]]"></plotly-plot>          
+    </template>
+
+    <iron-ajax 
+    auto 
+    id="getChart" 
+    url="/alpha" 
+    params='[[params]]' 
+    method="GET" 
+    handle-as="json" 
+    on-response="handleResponse"
+    debounce-duration="300">
+    </iron-ajax>
+
+  </template>
+
+  <script>
+    Polymer({
+
+      is: 'cosmic-chart',
+
+      properties: {
+        url: {
+          type: String,
+          computed: "computeURL(detector)",
+        },
+        detector: {
+          type: Object,
+        },
+        percentVariation: {
+          type: Boolean,
+          value: false,
+          observer: "_reprocess",
+        },
+        movingAverage: {
+          type: Number,
+          value: 0,
+          observer: "_reprocess",
+        },
+        formatChartDataProgress: {
+          type: Number,
+          value: 0,
+          observer: "_updateProgress"
+        },
+        percentVariationProgress: {
+          type: Number,
+          value: 0,
+          observer: "_updateProgress"
+        },
+        movingAverageProgress: {
+          type: Number,
+          value: 0,
+          observer: "_updateProgress"
+        },
+        loadingMessage: {
+          type: String,
+          value: "Fetching Data",
+        },
+        loading: {
+          type: Boolean,
+          value: true,
+          observer: "_loaded"
+        },
+        _data: {
+          type: Object,
+        },
+        _chartData: {
+          type: Object,
+        },
+        _chartLayout: {
+          type: Object,
+          computed: "computeLayout(detector)",
+        },
+        params: {
+          type: String,
+          computed: "computeParams(detector)",
+        },
+      },
+
+      computeURL: function (detector) {
+        return "/api/db/" + this.detector.alias;
+      },
+
+      computeParams: function (detector) {
+        var buffer = {};
+        buffer.type = "json";
+        return buffer;
+      },
+
+      computeLayout: function(detector){
+        var layout = {};
+        layout.title = this.detector.name;
+        layout.xaxis = {};
+        layout.yaxis = {};
+        layout.xaxis.rangeslider = {};
+        layout.xaxis.title = "Time (Local)";
+        layout.height = document.documentElement.clientHeight*0.6;
+        layout.margin = {};
+        layout.margin.l = 50;
+        layout.margin.r = 50;
+        layout.margin.b = 50;
+        layout.margin.t = 50;
+        return layout;
+      },
+
+      handleResponse: function (data) {
+        for (item in data.detail.response) {
+          for (key in data.detail.response[item]) {
+            if (key == "createdAt") {
+              // Convert date column to date object
+              data.detail.response[item][key] = new Date(Date.parse(data.detail.response[item][key]));
+            } else if ((key == "updatedAt") || (key == "id")) {
+              delete data.detail.response[item][key];
+            } else {
+              // convert all the others to numbers
+              data.detail.response[item][key] = Number(data.detail.response[item][key]);
+            }
+          }
+        }
+        this._data = data.detail.response;
+        this._reprocess();
+        this.loading = false;                      
+      },
+
+      _reprocess: function(){
+        if(this._data){
+          // Mark as re-loading
+          this.loading = true;
+          // Reset all Progress
+          this.formatChartDataProgress = 0;
+          this.percentVariationProgress = 0;  
+          this.movingAverageProgress = 0;   
+          // Reformat the data
+          this.formatChartData();
+        } 
+      },
+
+      _updateProgress: function(){
+        // console.log("formatChartDataProgress "+this.formatChartDataProgress);
+        // console.log("percentVariationProgress "+this.percentVariationProgress);
+        // console.log("movingAverageProgress "+this.movingAverageProgress);
+        if(this.formatChartDataProgress == 100){
+          if(this.percentVariationProgress == 100){
+            if(this.movingAverageProgress == 100){
+              this.loading = false;              
+              this._loaded();
+            } else if(this.movingAverage != 0){  
+              this.convertToMovingAverage();
+            } else {
+              this.movingAverageProgress = 100;
+            }
+
+          } else if(this.percentVariation){
+            this.convertToPercentVariation();
+          } else {
+            this.percentVariationProgress = 100;
+          }
+        }
+      },
+
+      _loaded: function(){
+        if(!this.loading && document.getElementById("chart")){
+            document.getElementById("chart").redraw(); 
+        }
+      },
+
+      formatChartData: function(){
+        var self = this;        
+        this.loadingMessage = "Formatting";        
+        var percentVariationWorker = new Worker("../../workers/formatChartData.js");
+        percentVariationWorker.postMessage(JSON.stringify(this._data));
+        percentVariationWorker.onmessage = function(message){
+          console.log(JSON.parse(message.data));
+          self._chartData = JSON.parse(message.data);
+          self.formatChartDataProgress = 100;  
+        }
+      },
+
+      convertToPercentVariation: function(){
+        var self = this; 
+        this.loadingMessage = "Converting to Percent Variation";        
+        var percentVariationWorker = new Worker("../../workers/percentVariation.js");
+        percentVariationWorker.postMessage(JSON.stringify(this._chartData));
+        percentVariationWorker.onmessage = function(message){
+          console.log(JSON.parse(message.data));
+          self._chartData = JSON.parse(message.data);
+          self.percentVariationProgress = 100;  
+        }
+      },
+
+      convertToMovingAverage: function(period){
+        var self = this;           
+        this.loadingMessage = "Processing Moving Average"; 
+        var movingAverageWorker = new Worker("../../workers/movingAverage.js");
+        var message = {chartData: this._chartData, period: this.movingAverage}
+        movingAverageWorker.postMessage(JSON.stringify(message));
+        movingAverageWorker.onmessage = function(message){
+          console.log(JSON.parse(message.data));
+          self._chartData = JSON.parse(message.data);
+          self.movingAverageProgress = 100;            
+        }
+      },
+
+    });
+  </script>
+</dom-module>
